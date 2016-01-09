@@ -5,16 +5,14 @@ import (
 	"fmt"
 	. "github.com/rthornton128/goncurses"
 	"os"
-	"time"
 	"strings"
+	"time"
 )
 
 func main() {
 
-
 	// check to see if the config file exists
 	// if it doesn't, create it and ask for API keys
-
 
 	if _, err := os.Stat("$HOME/.config/spoon/config"); err != nil {
 		fmt.Println(`Hello there! It looks like this is your first time running spoon
@@ -22,7 +20,7 @@ func main() {
 			again - actually, do you even use Twitter?`)
 	}
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("y/n: ")
+	fmt.Print("y/n: ")
 	text, _ := reader.ReadString('\n')
 	if strings.TrimSpace(text) == "y" {
 		fmt.Println(`Alright, now hand over your keys.
@@ -33,6 +31,10 @@ func main() {
 			Access Token Secret to fire up the reader.`)
 		at, _ := reader.ReadString('\n')
 		ats, _ := reader.ReadString('\n')
+		ck = strings.TrimSpace(ck)
+		csk = strings.TrimSpace(csk)
+		at = strings.TrimSpace(at)
+		ats = strings.TrimSpace(ats)
 		createAPI(ck, csk, at, ats)
 	}
 
@@ -43,10 +45,11 @@ func main() {
 	}
 
 	defer End()
-	rows, cols := stdscr.MaxYX()
+
 	stdscr.Print("feeds go here")
 	stdscr.MovePrint(3, 0, "q to quit")
 	stdscr.Refresh()
+	rows, cols := stdscr.MaxYX()
 	window, _ := NewWindow(1, cols, rows-1, 0)
 	mx, my := window.MaxYX()
 	StartColor()
@@ -65,6 +68,10 @@ main:
 	for {
 		UpdatePanels()
 		Update()
+		nrows, ncols := stdscr.MaxYX()
+		if nrows != mx || ncols != my {
+//			goto redraw
+		}
 		ch := stdscr.GetChar()
 		switch Key(ch) {
 		case 'q':
