@@ -49,7 +49,6 @@ func main() {
 	defer End()
 
 
-	stdscr.MovePrint(3, 0, "q to quit")
 	stdscr.Refresh()
 	rows, cols := stdscr.MaxYX()
 	window, _ := NewWindow(1, cols, rows-1, 0)
@@ -75,14 +74,17 @@ main:
 		updateTimeline(api)
 
 		for i:=0; i<len(tweets); i++ {
+			t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
 			stdscr.ColorOn(2)
-			stdscr.Print(tweets[i].CreatedAt + " ")
+			stdscr.Print(t.Format("15:04:05") + " ")
 			stdscr.ColorOff(2)
 			stdscr.ColorOn(3)
 			stdscr.AttrOn(A_BOLD)
-			stdscr.Print(tweets[i].User.ScreenName + "   ")
+			stdscr.Print(tweets[i].User.ScreenName)
 			stdscr.AttrOff(A_BOLD)
 			stdscr.ColorOff(3)
+			stdscr.Print("  ")
+			UseDefaultColors()
 			stdscr.Println(tweets[i].Text)
 		}
 
