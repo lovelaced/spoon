@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"github.com/ChimeraCoder/anaconda"
 )
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("y/n: ")
 	text, _ := reader.ReadString('\n')
+	var tweets []anaconda.Tweet
 	if strings.TrimSpace(text) == "y" {
 		fmt.Println(`Alright, now hand over your keys.
 			Consumer key first, then the secret consumer key.`)
@@ -35,7 +37,7 @@ func main() {
 		csk = strings.TrimSpace(csk)
 		at = strings.TrimSpace(at)
 		ats = strings.TrimSpace(ats)
-		createAPI(ck, csk, at, ats)
+		api, tweets = createAPI(ck, csk, at, ats)
 	}
 
 	stdscr, err := Init()
@@ -46,7 +48,7 @@ func main() {
 
 	defer End()
 
-	stdscr.Print("feeds go here")
+
 	stdscr.MovePrint(3, 0, "q to quit")
 	stdscr.Refresh()
 	rows, cols := stdscr.MaxYX()
@@ -54,6 +56,8 @@ func main() {
 	mx, my := window.MaxYX()
 	StartColor()
 	InitPair(1, C_BLACK, C_YELLOW)
+	InitPair(2, C_WHITE, C_BLACK)
+	InitPair(3, C_BLUE, C_BLACK)
 	window.ColorOn(int16(1))
 	// TODO: change time format so it's better
 	barinfo := time.Now().Format(time.RFC822)
@@ -68,6 +72,20 @@ main:
 	for {
 		UpdatePanels()
 		Update()
+		updateTimeline(api)
+
+		for i:=0; i<len(tweets); i++ {
+			stdscr.ColorOn(2)
+			stdscr.Print(tweets[i].CreatedAt + " ")
+			stdscr.ColorOff(2)
+			stdscr.ColorOn(3)
+			stdscr.AttrOn(A_BOLD)
+			stdscr.Print(tweets[i].User.ScreenName + "   ")
+			stdscr.AttrOff(A_BOLD)
+			stdscr.ColorOff(3)
+			stdscr.Println(tweets[i].Text)
+		}
+
 		nrows, ncols := stdscr.MaxYX()
 		if nrows != mx || ncols != my {
 //			goto redraw
