@@ -3,15 +3,15 @@ package main
 import (
 	//"bufio"
 	"fmt"
+	"io"
+	"log"
 	"os"
-        "io"
-        "log"
 	//"strings"
-	"time"
-        "encoding/json"
-        "launchpad.net/go-xdg"
+	"encoding/json"
 	"github.com/ChimeraCoder/anaconda"
 	. "github.com/rthornton128/goncurses"
+	xdg "launchpad.net/go-xdg"
+	"time"
 )
 
 func main() {
@@ -19,9 +19,9 @@ func main() {
 	// if it doesn't, create it and ask for API keys
 
 	var tweets []anaconda.Tweet
-        conf := loadConfig()
-        api, tweets = createAPI(conf.Twitter.Api_key, conf.Twitter.Api_secret, 
-                                conf.Twitter.Access_token, conf.Twitter.Access_secret)
+	conf := loadConfig()
+	api, tweets = createAPI(conf.Twitter.Api_key, conf.Twitter.Api_secret,
+		conf.Twitter.Access_token, conf.Twitter.Access_secret)
 
 	if _, err := xdg.Config.Find("/spoon/config.json"); err != nil {
 		fmt.Println(`Hello there! It looks like this is your first time running spoon
@@ -56,16 +56,17 @@ func main() {
 
 	defer End()
 
-
 	stdscr.Refresh()
 	rows, cols := stdscr.MaxYX()
 	window, _ := NewWindow(1, cols, rows-1, 0)
 	mx, my := window.MaxYX()
+
 	StartColor()
 	InitPair(1, C_BLACK, C_YELLOW)
 	InitPair(2, C_WHITE, C_BLACK)
 	InitPair(3, C_BLUE, C_BLACK)
 	window.ColorOn(int16(1))
+
 	// TODO: change time format so it's better
 	barinfo := time.Now().Format(time.RFC822)
 
@@ -75,67 +76,72 @@ func main() {
 	window.SetBackground(bgc)
 	NewPanel(window)
 
+	win, _ := NewWindow(rows-1, cols, 0, 0)
+
+	win.Keypad(true)
+
 main:
 	for {
 		UpdatePanels()
-		Update()
-		updateTimeline(api)
-
-		for i:=0; i<len(tweets); i++ {
+		tweets = updateTimeline(api)
+		win.Erase()
+		win.NoutRefresh()
+		for i := 0; i < len(tweets); i++ {
 			t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
-			stdscr.ColorOn(2)
-			stdscr.Print(t.Format("15:04:05") + " ")
-			stdscr.ColorOff(2)
-			stdscr.ColorOn(3)
-			stdscr.AttrOn(A_BOLD)
-			stdscr.Print(tweets[i].User.ScreenName)
-			stdscr.AttrOff(A_BOLD)
-			stdscr.ColorOff(3)
-			stdscr.Print("  ")
+			win.ColorOn(2)
+			win.Print(t.Format("15:04:05") + " ")
+			win.ColorOff(2)
+			win.ColorOn(3)
+			win.AttrOn(A_BOLD)
+			win.Print(tweets[i].User.ScreenName)
+			win.AttrOff(A_BOLD)
+			win.ColorOff(3)
+			win.Print("  ")
 			UseDefaultColors()
-			stdscr.Println(tweets[i].Text)
+			win.Println(tweets[i].Text)
 		}
-
+		win.NoutRefresh()
+		Update()
+		time.Sleep(10 * time.Second)
 		nrows, ncols := stdscr.MaxYX()
 		if nrows != mx || ncols != my {
-//			goto redraw
+			//			goto redraw
 		}
 		ch := stdscr.GetChar()
 		switch Key(ch) {
 		case 'q':
 			break main
 		case KEY_TAB:
-			// rotate focus between feed, expanded feed (if present), and bbar
+			//TODO: rotate focus between feed, expanded feed (if present), and bbar
 		case KEY_RIGHT:
-			// if focus is on bbar, scrolls through feeds
+			//TODO: if focus is on bbar, scrolls through feeds
 		case KEY_LEFT:
-			// same shit
+			//TODO: same shit
 		case KEY_UP:
-			// scroll through feed or expanded feed
+			//TODO: scroll through feed or expanded feed
 		case KEY_DOWN:
-			// same shit
+			//TODO: same shit
 		case KEY_ENTER:
-			// expands feed if feed is focused, selects feed if bbar is focused
+			//TODO: expands feed if feed is focused, selects feed if bbar is focused
 
 		}
 	}
 }
 
-func loadConfig() Config{
-    conf := Config{}
-    var file io.Reader
-    path, err := xdg.Config.Ensure("spoon/config.json")
-    if err == nil {
-        file, _ = os.Open(path)
-        fmt.Println(path)
-    } else {
-        fmt.Println(err.Error)
-    }
-    decoder := json.NewDecoder(file)
-    err = decoder.Decode(&conf)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Println(conf)
-    return conf
+func loadConfig() Config {
+	conf := Config{}
+	var file io.Reader
+	path, err := xdg.Config.Ensure("spoon/config.json")
+	if err == nil {
+		file, _ = os.Open(path)
+	} else {
+		fmt.Println(err.Error)
+	}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&conf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(conf)
+	return conf
 }
