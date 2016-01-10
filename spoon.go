@@ -121,21 +121,3 @@ main:
 	}
 }
 
-func loadConfig() Config{
-    conf := Config{}
-    var file io.Reader
-    path, err := xdg.Config.Ensure("spoon/config.json")
-    if err == nil {
-        file, _ = os.Open(path)
-        fmt.Println(path)
-    } else {
-        fmt.Println(err.Error)
-    }
-    decoder := json.NewDecoder(file)
-    err = decoder.Decode(&conf)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Println(conf)
-    return conf
-}
