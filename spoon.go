@@ -4,14 +4,11 @@ import (
 	//"bufio"
 	"fmt"
 	"os"
-        "io"
-        "log"
 	//"strings"
-	"time"
-        "encoding/json"
-        "launchpad.net/go-xdg"
 	"github.com/ChimeraCoder/anaconda"
 	. "github.com/rthornton128/goncurses"
+	"launchpad.net/go-xdg"
+	"time"
 )
 
 func main() {
@@ -19,9 +16,9 @@ func main() {
 	// if it doesn't, create it and ask for API keys
 
 	var tweets []anaconda.Tweet
-        conf := loadConfig()
-        api, tweets = createAPI(conf.Twitter.Api_key, conf.Twitter.Api_secret, 
-                                conf.Twitter.Access_token, conf.Twitter.Access_secret)
+	conf := loadConfig()
+	api, tweets = createAPI(conf.Twitter.Api_key, conf.Twitter.Api_secret,
+		conf.Twitter.Access_token, conf.Twitter.Access_secret)
 
 	if _, err := xdg.Config.Find("/spoon/config.json"); err != nil {
 		fmt.Println(`Hello there! It looks like this is your first time running spoon
@@ -56,7 +53,6 @@ func main() {
 
 	defer End()
 
-
 	stdscr.Refresh()
 	rows, cols := stdscr.MaxYX()
 	window, _ := NewWindow(1, cols, rows-1, 0)
@@ -81,7 +77,7 @@ main:
 		Update()
 		updateTimeline(api)
 
-		for i:=0; i<len(tweets); i++ {
+		for i := 0; i < len(tweets); i++ {
 			t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
 			stdscr.ColorOn(2)
 			stdscr.Print(t.Format("15:04:05") + " ")
@@ -98,7 +94,7 @@ main:
 
 		nrows, ncols := stdscr.MaxYX()
 		if nrows != mx || ncols != my {
-//			goto redraw
+			// goto redraw
 		}
 		ch := stdscr.GetChar()
 		switch Key(ch) {
@@ -120,4 +116,3 @@ main:
 		}
 	}
 }
-
