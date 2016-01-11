@@ -34,7 +34,7 @@ func loadConfig() Config {
 	if err == nil {
 		file, _ = os.Open(path)
 	} else {
-                os.
+
 	}
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&conf)

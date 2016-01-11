@@ -8,6 +8,7 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	. "github.com/rthornton128/goncurses"
 	"launchpad.net/go-xdg"
+	"log"
 	"time"
 )
 
@@ -17,6 +18,10 @@ func main() {
 
 	var tweets []anaconda.Tweet
 	conf := loadConfig()
+	err := initData()
+	if err != nil {
+		log.Fatal(err)
+	}
 	api, tweets = createAPI(conf.Twitter.Api_key, conf.Twitter.Api_secret,
 		conf.Twitter.Access_token, conf.Twitter.Access_secret)
 
