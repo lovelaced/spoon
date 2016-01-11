@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
+	//"strconv"
 	//"strings"
 	"github.com/ChimeraCoder/anaconda"
-	. "github.com/rthornton128/goncurses"
+	. "github.com/gbin/goncurses"
 	xdg "launchpad.net/go-xdg"
 	"time"
 )
@@ -169,7 +169,7 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedList []FeedItem) {
 			lineLength += 3
 			win.ColorOff(4)
 			UseDefaultColors()
-			text := strconv.QuoteToASCII(tweets[i].Text)
+			text := tweets[i].Text
 			var newFeed FeedItem
 			newFeed.Body = text
 			newFeed.Name = tweets[i].User.ScreenName

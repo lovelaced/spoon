@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	an "github.com/ChimeraCoder/anaconda"
-	. "github.com/rthornton128/goncurses"
+	. "github.com/gbin/goncurses"
 	"net/url"
 	"strconv"
 	"time"

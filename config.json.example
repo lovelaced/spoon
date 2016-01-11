@@ -4,5 +4,18 @@
         "api_secret"    : "",
         "access_token"  : "",
         "access_secret" : ""
+    },
+    "rss" : [
+        "feed1" : {
+            "url" : ""
+        }
+    ],
+    "spoon" : {
+        "look" : {
+            "color" : {
+                "statusbar" : "yellow",
+                "background" : "default"
+            }
+        }
     }
 }
