@@ -169,12 +169,12 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer FeedBuffer) {
 		feedList := feedBuffer.items
 		UpdatePanels()
 		win.Erase()
-		win.Refresh()
+		win.NoutRefresh()
 		//TODO: if Twitter...
 		tweets = updateTimeline(api)
-		feedList = processTweets(feedList, tweets)
+		feedBuffer.items = processTweets(feedList, tweets)
 		printFeed(win, feedBuffer)
-		win.Refresh()
+		win.NoutRefresh()
 		Update()
 		time.Sleep(10 * time.Second)
 	}
