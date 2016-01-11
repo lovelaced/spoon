@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	//"strings"
 	"encoding/json"
 	"github.com/ChimeraCoder/anaconda"
@@ -66,8 +67,7 @@ func main() {
 	InitPair(2, C_WHITE, C_BLACK)
 	InitPair(3, C_BLUE, C_BLACK)
 	window.ColorOn(int16(1))
-
-	// TODO: change time format so it's better
+	// TODO: change time format so it's better maybe
 	barinfo := time.Now().Format(time.RFC822)
 
 	window.MovePrint(mx/2, my-len(barinfo)-2, barinfo)
@@ -75,12 +75,56 @@ func main() {
 	bgc := ColorPair(int16(1))
 	window.SetBackground(bgc)
 	NewPanel(window)
-
+	totalFeeds := 2
+	var feeds [2]*Panel
+	m := make(map[string]*Window)
+	var names [2]string
+	names[0] = "twitter"
+	names[1] = "rss"
+	for i := totalFeeds - 1; i > 0; i-- {
+		win, _ := NewWindow(rows-1, cols, 0, 0)
+		feeds[i] = NewPanel(win)
+		m[names[i]] = win
+	}
 	win, _ := NewWindow(rows-1, cols, 0, 0)
-
-	win.Keypad(true)
-
+	feeds[0] = NewPanel(win)
+	//win.Keypad(true)
+	//win.ScrollOk(true)
+	go updateWindow(win, tweets)
+	active := 0
 main:
+	for {
+		UpdatePanels()
+		Update()
+		ch := win.GetChar()
+		switch Key(ch) {
+		case 'q':
+			break main
+		case KEY_TAB:
+			//TODO: rotate focus between feed, expanded feed (if present), and bbar
+			active += 1
+			if active > totalFeeds-1 {
+				active = 0
+			}
+			feeds[active].Top()
+		case KEY_RIGHT:
+		//TODO: if focus is on bbar, scrolls through feeds
+		case KEY_LEFT:
+		//TODO: same shit
+		case KEY_UP:
+		//TODO: scroll through feed or expanded feed
+		//	win.Scroll(1)
+		case KEY_DOWN:
+		//TODO: same shit
+		//	win.Scroll(-1)
+		case KEY_ENTER:
+			//TODO: expands feed if feed is focused, selects feed if bbar is focused
+
+		}
+	}
+}
+
+func updateWindow(win *Window, tweets []anaconda.Tweet) {
 	for {
 		UpdatePanels()
 		tweets = updateTimeline(api)
@@ -98,33 +142,12 @@ main:
 			win.ColorOff(3)
 			win.Print("  ")
 			UseDefaultColors()
-			win.Println(tweets[i].Text)
+			text := strconv.QuoteToASCII(tweets[i].Text)
+			win.Println(text)
 		}
 		win.NoutRefresh()
 		Update()
 		time.Sleep(10 * time.Second)
-		nrows, ncols := stdscr.MaxYX()
-		if nrows != mx || ncols != my {
-			//			goto redraw
-		}
-		ch := stdscr.GetChar()
-		switch Key(ch) {
-		case 'q':
-			break main
-		case KEY_TAB:
-			//TODO: rotate focus between feed, expanded feed (if present), and bbar
-		case KEY_RIGHT:
-			//TODO: if focus is on bbar, scrolls through feeds
-		case KEY_LEFT:
-			//TODO: same shit
-		case KEY_UP:
-			//TODO: scroll through feed or expanded feed
-		case KEY_DOWN:
-			//TODO: same shit
-		case KEY_ENTER:
-			//TODO: expands feed if feed is focused, selects feed if bbar is focused
-
-		}
 	}
 }
 
@@ -142,6 +165,5 @@ func loadConfig() Config {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(conf)
 	return conf
 }
