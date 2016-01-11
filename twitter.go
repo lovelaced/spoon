@@ -38,7 +38,7 @@ func updateTimeline(api *an.TwitterApi) []an.Tweet {
 	return home
 }
 
-func processTweets(feedList []FeedItem, tweets []an.Tweet) {
+func processTweets(feedList []FeedItem, tweets []an.Tweet) []FeedItem {
 
 	for i := 0; i < len(tweets); i++ {
 		t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
@@ -53,6 +53,7 @@ func processTweets(feedList []FeedItem, tweets []an.Tweet) {
 		newFeed.Time = t
 		feedList = append(feedList, newFeed)
 	}
+	return feedList
 }
 
 //TODO: Actually move this here

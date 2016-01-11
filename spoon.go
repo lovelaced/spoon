@@ -42,15 +42,15 @@ func main() {
 	defer End()
 
 	stdscr.Refresh()
-	rows, cols := stdscr.MaxYX()
-	window, _ := NewWindow(1, cols, rows-1, 0)
-	mx, my := window.MaxYX()
+	cols, rows := stdscr.MaxYX()
+	window, _ := NewWindow(1, rows, cols-1, 0)
+	my, mx := window.MaxYX()
 
 	// Initialize colors
 	StartColor()
 	UseDefaultColors()
 	InitPair(1, C_BLACK, C_YELLOW)
-	InitPair(2, C_WHITE, -1)
+	InitPair(2, C_BLACK, C_WHITE)
 	InitPair(3, C_BLUE, -1)
 	InitPair(4, C_YELLOW, -1)
 	window.ColorOn(int16(1))
@@ -59,7 +59,7 @@ func main() {
 	// Set up lower right bar information
 	barinfo := time.Now().Format(time.RFC822)
 
-	window.MovePrint(mx/2, my-len(barinfo)-2, barinfo)
+	window.MovePrint(my/2, mx-len(barinfo)-2, barinfo)
 	window.ColorOff(int16(1))
 	bgc := ColorPair(int16(1))
 	window.SetBackground(bgc)
@@ -71,7 +71,6 @@ func main() {
 	//TODO: Get names of feeds from config file
 	totalFeeds := 3
 	feedPanels := make([]*Panel, totalFeeds)
-	m := make(map[string]*Window)
 	var names [3]string
 	names[0] = "all"
 	names[1] = "twitter"
@@ -83,7 +82,7 @@ func main() {
 		if i == 0 {
 			window.AttrOn(A_BOLD)
 		}
-		window.MovePrint(mx/2, totalLength+1, "["+names[i]+"] ")
+		window.MovePrint(my/2, totalLength+1, "["+names[i]+"] ")
 		if i == 0 {
 			window.AttrOff(A_BOLD)
 		}
@@ -92,15 +91,19 @@ func main() {
 
 	// this sets up a hashmap of names:windows but I'm not sure we need it
 	var win *Window
+	m := make(map[string]*Window)
 	for i := totalFeeds - 1; i >= 0; i-- {
-		win, _ = NewWindow(rows-1, cols, 0, 0)
+		win, _ = NewWindow(cols-1, rows, 0, 0)
 		feedPanels[i] = NewPanel(win)
 		m[names[i]] = win
 	}
 
 	//create a list which holds feed items, we need one for each feedBuffer
 	feedList := make([]FeedItem, 1)
-	go updateWindow(win, tweets, feedList)
+	var feedBuffer FeedBuffer
+	feedBuffer.currItem = 0
+	feedBuffer.items = feedList
+	go updateWindow(win, tweets, feedBuffer)
 	//go updateTwitterWindow(win, tweets, feedList)
 	active := 0
 
@@ -125,7 +128,7 @@ main:
 				if names[active] == names[i] {
 					window.AttrOn(A_BOLD)
 				}
-				window.MovePrint(mx/2, totalLength+1, "["+names[i]+"] ")
+				window.MovePrint(my/2, totalLength+1, "["+names[i]+"] ")
 				if names[active] == names[i] {
 					window.AttrOff(A_BOLD)
 				}
@@ -133,14 +136,14 @@ main:
 			}
 		case ':':
 			//TODO: fix this
-			_, my = window.MaxYX()
+			_, mx = window.MaxYX()
 			Echo(true)
-			window.MovePrint(1, my, ":")
+			window.MovePrint(my, 1, ":")
 			window.ClearToEOL()
-			window.Move(1, my)
+			window.Move(1, mx)
 			window.ColorOn(1)
 			//	window.Move(1, my)
-			command, _ := window.GetString(my)
+			command, _ := window.GetString(mx)
 			parseCommand(command, window)
 			Echo(false)
 
@@ -149,11 +152,11 @@ main:
 		case KEY_LEFT:
 		//TODO: same shit
 		case KEY_UP:
-		//TODO: scroll through feed or expanded feed
-		//	win.Scroll(1)
+			//TODO: scroll through feed or expanded feed
+			feedBuffer.currItem -= 1
 		case KEY_DOWN:
-		//TODO: same shit
-		//	win.Scroll(-1)
+			//TODO: same shit
+			feedBuffer.currItem += 1
 		case KEY_ENTER:
 			//TODO: expands feed if feed is focused, selects feed if bbar is focused
 
@@ -161,37 +164,38 @@ main:
 	}
 }
 
-func updateWindow(win *Window, tweets []anaconda.Tweet, feedList []FeedItem) {
+func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer FeedBuffer) {
 	for {
+		feedList := feedBuffer.items
 		UpdatePanels()
 		win.Erase()
-		win.NoutRefresh()
+		win.Refresh()
 		//TODO: if Twitter...
 		tweets = updateTimeline(api)
-		processTweets(feedList, tweets)
-		printFeed(win, feedList)
-		win.NoutRefresh()
+		feedList = processTweets(feedList, tweets)
+		printFeed(win, feedBuffer)
+		win.Refresh()
 		Update()
 		time.Sleep(10 * time.Second)
 	}
 }
 
-func printFeed(win *Window, feedList []FeedItem) {
-	mx, _ := win.MaxYX()
+func printFeed(win *Window, feedBuffer FeedBuffer) {
+	my, mx := win.MaxYX()
 	var iterations int
+	feedList := feedBuffer.items
 	// check to see if the feedlist is more than the number
 	// of lines we have in our window
-	if len(feedList) < mx-1 {
-		iterations = len(feedList)
-	} else {
-		iterations = mx - 1
+	iterations = my - 1
+	if (feedBuffer.currItem)+iterations > len(feedBuffer.items)-1 {
+		iterations = len(feedList) - feedBuffer.currItem
 	}
-	for i := 0; i < iterations; i++ {
+	for i := feedBuffer.currItem; i < feedBuffer.currItem+iterations; i++ {
 		win.ColorOn(2)
 		_, my := win.MaxYX()
 		lineLength := 1
 		// only print time if the window is wider than 40 cols
-		if my > 40 {
+		if mx > 40 {
 			win.Print(feedList[i].Time.Format(" 15:04") + " ")
 			lineLength = 7
 		}
@@ -216,12 +220,20 @@ func printFeed(win *Window, feedList []FeedItem) {
 		lineLength += 3
 		win.ColorOff(4)
 		UseDefaultColors()
+		if i == feedBuffer.currItem {
+			win.ColorOn(2)
+		}
 		text := feedList[i].Body
 		if len(text) > my-lineLength-7 {
+
 			win.Println(strings.TrimSpace(text[:my-lineLength-7]) + "...")
 		} else {
 			win.Println(text)
 		}
+		if i == feedBuffer.currItem {
+			win.ColorOff(2)
+		}
+
 	}
 }
 
