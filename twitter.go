@@ -38,6 +38,23 @@ func updateTimeline(api *an.TwitterApi) []an.Tweet {
 	return home
 }
 
+func processTweets(feedList []FeedItem, tweets []an.Tweet) {
+
+	for i := 0; i < len(tweets); i++ {
+		t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
+		if len(feedList) > 1 && feedList[len(feedList)-1].Time.After(t) {
+			continue
+		}
+		text := tweets[i].Text
+		var newFeed FeedItem
+		newFeed.Body = text
+		newFeed.Name = tweets[i].User.ScreenName
+		newFeed.Read = false
+		newFeed.Time = t
+		feedList = append(feedList, newFeed)
+	}
+}
+
 //TODO: Actually move this here
 func updateTwitterWindow(win *Window, tweets []an.Tweet, feedList []FeedItem) {
 	for {

@@ -32,7 +32,7 @@ func main() {
 			or you've misplaced your configuration file. We're gonna need those Twitter keys
 			again - actually, do you even use Twitter?`)
 	}
-
+	// Init ncurses, standard window
 	stdscr, err := Init()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -46,6 +46,7 @@ func main() {
 	window, _ := NewWindow(1, cols, rows-1, 0)
 	mx, my := window.MaxYX()
 
+	// Initialize colors
 	StartColor()
 	UseDefaultColors()
 	InitPair(1, C_BLACK, C_YELLOW)
@@ -54,6 +55,8 @@ func main() {
 	InitPair(4, C_YELLOW, -1)
 	window.ColorOn(int16(1))
 	// TODO: change time format so it's better maybe
+
+	// Set up lower right bar information
 	barinfo := time.Now().Format(time.RFC822)
 
 	window.MovePrint(mx/2, my-len(barinfo)-2, barinfo)
@@ -62,7 +65,10 @@ func main() {
 	window.SetBackground(bgc)
 	Echo(false)
 	NewPanel(window)
+
+	// set up a different panel for each feed
 	//TODO: Get total number of feeds from config file
+	//TODO: Get names of feeds from config file
 	totalFeeds := 3
 	feedPanels := make([]*Panel, totalFeeds)
 	m := make(map[string]*Window)
@@ -72,6 +78,7 @@ func main() {
 	names[2] = "rss"
 	totalLength := 1
 
+	// print the names of the feeds into the lower left of the bar
 	for i := 0; i < len(names); i++ {
 		if i == 0 {
 			window.AttrOn(A_BOLD)
@@ -82,12 +89,16 @@ func main() {
 		}
 		totalLength += len(names[i]) + 3
 	}
+
+	// this sets up a hashmap of names:windows but I'm not sure we need it
 	var win *Window
 	for i := totalFeeds - 1; i >= 0; i-- {
 		win, _ = NewWindow(rows-1, cols, 0, 0)
 		feedPanels[i] = NewPanel(win)
 		m[names[i]] = win
 	}
+
+	//create a list which holds feed items, we need one for each feedBuffer
 	feedList := make([]FeedItem, 1)
 	go updateWindow(win, tweets, feedList)
 	//go updateTwitterWindow(win, tweets, feedList)
@@ -98,6 +109,8 @@ main:
 		UpdatePanels()
 		Update()
 		ch := win.GetChar()
+
+		// check for user input
 		switch Key(ch) {
 		case 'q':
 			break main
@@ -119,6 +132,7 @@ main:
 				totalLength += len(names[i]) + 3
 			}
 		case ':':
+			//TODO: fix this
 			_, my = window.MaxYX()
 			Echo(true)
 			window.MovePrint(1, my, ":")
@@ -150,69 +164,58 @@ main:
 func updateWindow(win *Window, tweets []anaconda.Tweet, feedList []FeedItem) {
 	for {
 		UpdatePanels()
-		tweets = updateTimeline(api)
 		win.Erase()
 		win.NoutRefresh()
-		for i := 0; i < len(tweets); i++ {
-			t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
-			for i := 0; i < len(feedList); i++ {
-				fmt.Println(feedList[i].Body)
-			}
-			if len(feedList) > 1 && feedList[i-1].Time.After(t) {
-				continue
-			}
-			win.ColorOn(2)
-			_, my := win.MaxYX()
-			lineLength := 1
-			if my > 40 {
-				win.Print(t.Format(" 15:04") + " ")
-				lineLength = 7
-			}
-			win.ColorOff(2)
-			win.ColorOn(3)
-			win.AttrOn(A_BOLD)
-			padding := 8 - len(tweets[i].User.ScreenName)
-			for i := 0; i < padding; i++ {
-				win.Print(" ")
-			}
-			if len(tweets[i].User.ScreenName) > 8 {
-				win.Print(tweets[i].User.ScreenName[:8])
-				lineLength += 8
-			} else {
-				win.Print(tweets[i].User.ScreenName)
-				lineLength += len(tweets[i].User.ScreenName)
-			}
-			win.AttrOff(A_BOLD)
-			win.ColorOff(3)
-			win.ColorOn(4)
-			win.Print(" │ ")
-			lineLength += 3
-			win.ColorOff(4)
-			UseDefaultColors()
-			text := tweets[i].Text
-			var newFeed FeedItem
-			newFeed.Body = text
-			newFeed.Name = tweets[i].User.ScreenName
-			newFeed.Read = false
-			newFeed.Time = t
-			feedList = append(feedList, newFeed)
-			printFeed(win, feedList, lineLength)
-		}
+		//TODO: if Twitter...
+		tweets = updateTimeline(api)
+		processTweets(feedList, tweets)
+		printFeed(win, feedList)
 		win.NoutRefresh()
 		Update()
 		time.Sleep(10 * time.Second)
 	}
 }
 
-func printFeed(win *Window, feedList []FeedItem, lineLength int) {
-	mx, my := win.MaxYX()
+func printFeed(win *Window, feedList []FeedItem) {
+	mx, _ := win.MaxYX()
 	var iterations int
+	// check to see if the feedlist is more than the number
+	// of lines we have in our window
 	if len(feedList) < mx-1 {
 		iterations = len(feedList)
 	} else {
 		iterations = mx - 1
 	}
 	for i := 0; i < iterations; i++ {
+		win.ColorOn(2)
+		_, my := win.MaxYX()
+		lineLength := 1
+		// only print time if the window is wider than 40 cols
+		if my > 40 {
+			win.Print(feedList[i].Time.Format(" 15:04") + " ")
+			lineLength = 7
+		}
+		win.ColorOff(2)
+		win.ColorOn(3)
+		win.AttrOn(A_BOLD)
+		padding := 8 - len(feedList[i].Name)
+		for i := 0; i < padding; i++ {
+			win.Print(" ")
+		}
+		if len(feedList[i].Name) > 8 {
+			win.Print(feedList[i].Name[:8])
+			lineLength += 8
+		} else {
+			win.Print(feedList[i].Name)
+			lineLength += len(feedList[i].Name)
+		}
+		win.AttrOff(A_BOLD)
+		win.ColorOff(3)
+		win.ColorOn(4)
+		win.Print(" │ ")
+		lineLength += 3
+		win.ColorOff(4)
+		UseDefaultColors()
 		text := feedList[i].Body
 		if len(text) > my-lineLength-7 {
 			win.Println(strings.TrimSpace(text[:my-lineLength-7]) + "...")
