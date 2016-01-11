@@ -1,6 +1,6 @@
 package main
 
 type FeedBuffer struct {
-	currX int
-	items []FeedItem
+	currItem int
+	items    []FeedItem
 }

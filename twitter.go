@@ -38,6 +38,7 @@ func updateTimeline(api *an.TwitterApi) []an.Tweet {
 	return home
 }
 
+//TODO: Actually move this here
 func updateTwitterWindow(win *Window, tweets []an.Tweet, feedList []FeedItem) {
 	for {
 		UpdatePanels()

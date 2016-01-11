@@ -10,6 +10,7 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	. "github.com/gbin/goncurses"
 	xdg "launchpad.net/go-xdg"
+	"strings"
 	"time"
 )
 
@@ -59,10 +60,11 @@ func main() {
 	window.ColorOff(int16(1))
 	bgc := ColorPair(int16(1))
 	window.SetBackground(bgc)
+	Echo(false)
 	NewPanel(window)
 	//TODO: Get total number of feeds from config file
 	totalFeeds := 3
-	var feeds [3]*Panel
+	feedPanels := make([]*Panel, totalFeeds)
 	m := make(map[string]*Window)
 	var names [3]string
 	names[0] = "all"
@@ -83,7 +85,7 @@ func main() {
 	var win *Window
 	for i := totalFeeds - 1; i >= 0; i-- {
 		win, _ = NewWindow(rows-1, cols, 0, 0)
-		feeds[i] = NewPanel(win)
+		feedPanels[i] = NewPanel(win)
 		m[names[i]] = win
 	}
 	feedList := make([]FeedItem, 1)
@@ -104,7 +106,7 @@ main:
 			if active > totalFeeds-1 {
 				active = 0
 			}
-			feeds[active].Top()
+			feedPanels[active].Top()
 			totalLength = 1
 			for i := 0; i < len(names); i++ {
 				if names[active] == names[i] {
@@ -116,6 +118,18 @@ main:
 				}
 				totalLength += len(names[i]) + 3
 			}
+		case ':':
+			_, my = window.MaxYX()
+			Echo(true)
+			window.MovePrint(1, my, ":")
+			window.ClearToEOL()
+			window.Move(1, my)
+			window.ColorOn(1)
+			//	window.Move(1, my)
+			command, _ := window.GetString(my)
+			parseCommand(command, window)
+			Echo(false)
+
 		case KEY_RIGHT:
 		//TODO: if focus is on bbar, scrolls through feeds
 		case KEY_LEFT:
@@ -141,6 +155,12 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedList []FeedItem) {
 		win.NoutRefresh()
 		for i := 0; i < len(tweets); i++ {
 			t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
+			for i := 0; i < len(feedList); i++ {
+				fmt.Println(feedList[i].Body)
+			}
+			if len(feedList) > 1 && feedList[i-1].Time.After(t) {
+				continue
+			}
 			win.ColorOn(2)
 			_, my := win.MaxYX()
 			lineLength := 1
@@ -165,7 +185,7 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedList []FeedItem) {
 			win.AttrOff(A_BOLD)
 			win.ColorOff(3)
 			win.ColorOn(4)
-			win.Print(" | ")
+			win.Print(" │ ")
 			lineLength += 3
 			win.ColorOff(4)
 			UseDefaultColors()
@@ -176,14 +196,39 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedList []FeedItem) {
 			newFeed.Read = false
 			newFeed.Time = t
 			feedList = append(feedList, newFeed)
-			if len(text) > my-lineLength-7 {
-				win.Println(text[:my-lineLength-7] + "...")
-			} else {
-				win.Println(text)
-			}
+			printFeed(win, feedList, lineLength)
 		}
 		win.NoutRefresh()
 		Update()
 		time.Sleep(10 * time.Second)
+	}
+}
+
+func printFeed(win *Window, feedList []FeedItem, lineLength int) {
+	mx, my := win.MaxYX()
+	var iterations int
+	if len(feedList) < mx-1 {
+		iterations = len(feedList)
+	} else {
+		iterations = mx - 1
+	}
+	for i := 0; i < iterations; i++ {
+		text := feedList[i].Body
+		if len(text) > my-lineLength-7 {
+			win.Println(strings.TrimSpace(text[:my-lineLength-7]) + "...")
+		} else {
+			win.Println(text)
+		}
+	}
+}
+
+func parseCommand(command string, window *Window) {
+	switch command {
+	case "/clear":
+		window.Clear()
+		window.Refresh()
+	case "/exit":
+		End()
+		os.Exit(0)
 	}
 }
