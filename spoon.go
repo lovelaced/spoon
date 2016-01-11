@@ -30,25 +30,6 @@ func main() {
 			again - actually, do you even use Twitter?`)
 	}
 
-	//reader := bufio.NewReader(os.Stdin)
-	//fmt.Print("y/n: ")
-	//text, _ := reader.ReadString('\n')
-	//if strings.TrimSpace(text) == "y" {
-	//	fmt.Println(`Alright, now hand over your keys.
-	//		Consumer key first, then the secret consumer key.`)
-	//	ck, _ := reader.ReadString('\n')
-	//	csk, _ := reader.ReadString('\n')
-	//	fmt.Println(`Okay, great. Now we'll also need your Access Token and
-	//		Access Token Secret to fire up the reader.`)
-	//	at, _ := reader.ReadString('\n')
-	//	ats, _ := reader.ReadString('\n')
-	//	ck = strings.TrimSpace(ck)
-	//	csk = strings.TrimSpace(csk)
-	//	at = strings.TrimSpace(at)
-	//	ats = strings.TrimSpace(ats)
-	//	api, tweets = createAPI(ck, csk, at, ats)
-	//}
-
 	stdscr, err := Init()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -63,9 +44,11 @@ func main() {
 	mx, my := window.MaxYX()
 
 	StartColor()
+	UseDefaultColors()
 	InitPair(1, C_BLACK, C_YELLOW)
-	InitPair(2, C_WHITE, C_BLACK)
-	InitPair(3, C_BLUE, C_BLACK)
+	InitPair(2, C_WHITE, -1)
+	InitPair(3, C_BLUE, -1)
+	InitPair(4, C_YELLOW, -1)
 	window.ColorOn(int16(1))
 	// TODO: change time format so it's better maybe
 	barinfo := time.Now().Format(time.RFC822)
@@ -75,6 +58,7 @@ func main() {
 	bgc := ColorPair(int16(1))
 	window.SetBackground(bgc)
 	NewPanel(window)
+	//TODO: Get total number of feeds from config file
 	totalFeeds := 3
 	var feeds [3]*Panel
 	m := make(map[string]*Window)
@@ -83,8 +67,15 @@ func main() {
 	names[1] = "twitter"
 	names[2] = "rss"
 	totalLength := 1
+
 	for i := 0; i < len(names); i++ {
+		if i == 0 {
+			window.AttrOn(A_BOLD)
+		}
 		window.MovePrint(mx/2, totalLength+1, "["+names[i]+"] ")
+		if i == 0 {
+			window.AttrOff(A_BOLD)
+		}
 		totalLength += len(names[i]) + 3
 	}
 	var win *Window
@@ -93,12 +84,11 @@ func main() {
 		feeds[i] = NewPanel(win)
 		m[names[i]] = win
 	}
-	//	win, _ := NewWindow(rows-1, cols, 0, 0)
-	//	feeds[0] = NewPanel(win)
-	go updateWindow(win, tweets)
-	//win.Keypad(true)
-	//win.ScrollOk(true)
+	feedList := make([]FeedItem, 1)
+	go updateWindow(win, tweets, feedList)
+	//go updateTwitterWindow(win, tweets, feedList)
 	active := 0
+
 main:
 	for {
 		UpdatePanels()
@@ -108,7 +98,6 @@ main:
 		case 'q':
 			break main
 		case KEY_TAB:
-			//TODO: rotate focus between feed, expanded feed (if present), and bbar
 			active += 1
 			if active > totalFeeds-1 {
 				active = 0
@@ -142,7 +131,7 @@ main:
 	}
 }
 
-func updateWindow(win *Window, tweets []anaconda.Tweet) {
+func updateWindow(win *Window, tweets []anaconda.Tweet, feedList []FeedItem) {
 	for {
 		UpdatePanels()
 		tweets = updateTimeline(api)
@@ -151,17 +140,45 @@ func updateWindow(win *Window, tweets []anaconda.Tweet) {
 		for i := 0; i < len(tweets); i++ {
 			t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
 			win.ColorOn(2)
-			win.Print(t.Format("15:04:05") + " ")
+			_, my := win.MaxYX()
+			lineLength := 1
+			if my > 40 {
+				win.Print(t.Format(" 15:04") + " ")
+				lineLength = 7
+			}
 			win.ColorOff(2)
 			win.ColorOn(3)
 			win.AttrOn(A_BOLD)
-			win.Print(tweets[i].User.ScreenName)
+			padding := 8 - len(tweets[i].User.ScreenName)
+			for i := 0; i < padding; i++ {
+				win.Print(" ")
+			}
+			if len(tweets[i].User.ScreenName) > 8 {
+				win.Print(tweets[i].User.ScreenName[:8])
+				lineLength += 8
+			} else {
+				win.Print(tweets[i].User.ScreenName)
+				lineLength += len(tweets[i].User.ScreenName)
+			}
 			win.AttrOff(A_BOLD)
 			win.ColorOff(3)
-			win.Print("  ")
+			win.ColorOn(4)
+			win.Print(" | ")
+			lineLength += 3
+			win.ColorOff(4)
 			UseDefaultColors()
 			text := strconv.QuoteToASCII(tweets[i].Text)
-			win.Println(text)
+			var newFeed FeedItem
+			newFeed.Body = text
+			newFeed.Name = tweets[i].User.ScreenName
+			newFeed.Read = false
+			newFeed.Time = t
+			feedList = append(feedList, newFeed)
+			if len(text) > my-lineLength-7 {
+				win.Println(text[:my-lineLength-7] + "...")
+			} else {
+				win.Println(text)
+			}
 		}
 		win.NoutRefresh()
 		Update()
