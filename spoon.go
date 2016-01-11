@@ -75,22 +75,29 @@ func main() {
 	bgc := ColorPair(int16(1))
 	window.SetBackground(bgc)
 	NewPanel(window)
-	totalFeeds := 2
-	var feeds [2]*Panel
+	totalFeeds := 3
+	var feeds [3]*Panel
 	m := make(map[string]*Window)
-	var names [2]string
-	names[0] = "twitter"
-	names[1] = "rss"
-	for i := totalFeeds - 1; i > 0; i-- {
-		win, _ := NewWindow(rows-1, cols, 0, 0)
+	var names [3]string
+	names[0] = "all"
+	names[1] = "twitter"
+	names[2] = "rss"
+	totalLength := 1
+	for i := 0; i < len(names); i++ {
+		window.MovePrint(mx/2, totalLength+1, "["+names[i]+"] ")
+		totalLength += len(names[i]) + 3
+	}
+	var win *Window
+	for i := totalFeeds - 1; i >= 0; i-- {
+		win, _ = NewWindow(rows-1, cols, 0, 0)
 		feeds[i] = NewPanel(win)
 		m[names[i]] = win
 	}
-	win, _ := NewWindow(rows-1, cols, 0, 0)
-	feeds[0] = NewPanel(win)
+	//	win, _ := NewWindow(rows-1, cols, 0, 0)
+	//	feeds[0] = NewPanel(win)
+	go updateWindow(win, tweets)
 	//win.Keypad(true)
 	//win.ScrollOk(true)
-	go updateWindow(win, tweets)
 	active := 0
 main:
 	for {
@@ -107,6 +114,17 @@ main:
 				active = 0
 			}
 			feeds[active].Top()
+			totalLength = 1
+			for i := 0; i < len(names); i++ {
+				if names[active] == names[i] {
+					window.AttrOn(A_BOLD)
+				}
+				window.MovePrint(mx/2, totalLength+1, "["+names[i]+"] ")
+				if names[active] == names[i] {
+					window.AttrOff(A_BOLD)
+				}
+				totalLength += len(names[i]) + 3
+			}
 		case KEY_RIGHT:
 		//TODO: if focus is on bbar, scrolls through feeds
 		case KEY_LEFT:
