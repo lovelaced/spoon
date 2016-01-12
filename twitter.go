@@ -5,9 +5,9 @@ import (
 	an "github.com/ChimeraCoder/anaconda"
 	. "github.com/gbin/goncurses"
 	"net/url"
-	"strconv"
 	"time"
 	//	spew "github.com/davecgh/go-spew/spew"
+	"strings"
 )
 
 //
@@ -42,7 +42,7 @@ func processTweets(feedList []FeedItem, tweets []an.Tweet) []FeedItem {
 
 	for i := 0; i < len(tweets); i++ {
 		t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
-		if len(feedList) > 1 && feedList[len(feedList)-1].Time.After(t) {
+		if len(feedList) > 1 && feedList[len(feedList)-1].Time.Before(t) {
 			continue
 		}
 		text := tweets[i].Text
@@ -57,7 +57,8 @@ func processTweets(feedList []FeedItem, tweets []an.Tweet) []FeedItem {
 }
 
 //TODO: Actually move this here
-func updateTwitterWindow(win *Window, tweets []an.Tweet, feedList []FeedItem) {
+func updateTwitterWindow(win *Window, tweets []an.Tweet, feedBuffer FeedBuffer) FeedBuffer {
+	feedList := feedBuffer.items
 	for {
 		UpdatePanels()
 		tweets = updateTimeline(api)
@@ -65,14 +66,15 @@ func updateTwitterWindow(win *Window, tweets []an.Tweet, feedList []FeedItem) {
 		win.NoutRefresh()
 		for i := 0; i < len(tweets); i++ {
 			t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
-			win.ColorOn(2)
+			//			if len(feedList) > 1 && feedList[len(feedList)-1].Time.Before(t) {
+			//				continue
+			//			}
 			_, my := win.MaxYX()
 			lineLength := 1
 			if my > 40 {
 				win.Print(t.Format(" 15:04") + " ")
 				lineLength = 7
 			}
-			win.ColorOff(2)
 			win.ColorOn(3)
 			win.AttrOn(A_BOLD)
 			padding := 8 - len(tweets[i].User.ScreenName)
@@ -93,7 +95,7 @@ func updateTwitterWindow(win *Window, tweets []an.Tweet, feedList []FeedItem) {
 			lineLength += 3
 			win.ColorOff(4)
 			UseDefaultColors()
-			text := strconv.QuoteToASCII(tweets[i].Text)
+			text := strings.TrimSpace(tweets[i].Text)
 			var newFeed FeedItem
 			newFeed.Body = text
 			newFeed.Name = tweets[i].User.ScreenName
@@ -106,8 +108,12 @@ func updateTwitterWindow(win *Window, tweets []an.Tweet, feedList []FeedItem) {
 				win.Println(text)
 			}
 		}
+		feedBuffer.items = feedList
+		feedBuffer.currPrinted += len(tweets)
+
 		win.NoutRefresh()
 		Update()
 		time.Sleep(10 * time.Second)
+		return feedBuffer
 	}
 }

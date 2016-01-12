@@ -101,7 +101,8 @@ func main() {
 	//create a list which holds feed items, we need one for each feedBuffer
 	feedList := make([]FeedItem, 1)
 	var feedBuffer FeedBuffer
-	feedBuffer.currItem = 0
+	feedBuffer.currSelected = 0
+	feedBuffer.currPrinted = 0
 	feedBuffer.items = feedList
 	go updateWindow(win, tweets, feedBuffer)
 	//go updateTwitterWindow(win, tweets, feedList)
@@ -138,8 +139,7 @@ main:
 			//TODO: fix this
 			_, mx = window.MaxYX()
 			Echo(true)
-			window.MovePrint(my, 1, ":")
-			window.ClearToEOL()
+			window.MovePrint(my, 1, len(feedBuffer.items))
 			window.Move(1, mx)
 			window.ColorOn(1)
 			//	window.Move(1, my)
@@ -153,10 +153,14 @@ main:
 		//TODO: same shit
 		case KEY_UP:
 			//TODO: scroll through feed or expanded feed
-			feedBuffer.currItem -= 1
+			feedBuffer.currSelected -= 1
+			win.ScrollOk(true)
+			printFeed(win, feedBuffer)
 		case KEY_DOWN:
 			//TODO: same shit
-			feedBuffer.currItem += 1
+			win.ScrollOk(true)
+			feedBuffer.currSelected += 1
+			printFeed(win, feedBuffer)
 		case KEY_ENTER:
 			//TODO: expands feed if feed is focused, selects feed if bbar is focused
 
@@ -173,6 +177,7 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer FeedBuffer) {
 		//TODO: if Twitter...
 		tweets = updateTimeline(api)
 		feedBuffer.items = processTweets(feedList, tweets)
+		//feedBuffer = updateTwitterWindow(win, tweets, feedBuffer)
 		printFeed(win, feedBuffer)
 		win.NoutRefresh()
 		Update()
@@ -182,16 +187,14 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer FeedBuffer) {
 
 func printFeed(win *Window, feedBuffer FeedBuffer) {
 	my, mx := win.MaxYX()
-	var iterations int
 	feedList := feedBuffer.items
 	// check to see if the feedlist is more than the number
 	// of lines we have in our window
-	iterations = my - 1
-	if (feedBuffer.currItem)+iterations > len(feedBuffer.items)-1 {
-		iterations = len(feedList) - feedBuffer.currItem
+	iterations := my - 1
+	if (feedBuffer.currPrinted)+iterations > len(feedBuffer.items)-1 {
+		iterations = len(feedList) - feedBuffer.currPrinted - 1
 	}
-	for i := feedBuffer.currItem; i < feedBuffer.currItem+iterations; i++ {
-		win.ColorOn(2)
+	for i := feedBuffer.currPrinted; i < iterations; i++ {
 		_, my := win.MaxYX()
 		lineLength := 1
 		// only print time if the window is wider than 40 cols
@@ -199,7 +202,6 @@ func printFeed(win *Window, feedBuffer FeedBuffer) {
 			win.Print(feedList[i].Time.Format(" 15:04") + " ")
 			lineLength = 7
 		}
-		win.ColorOff(2)
 		win.ColorOn(3)
 		win.AttrOn(A_BOLD)
 		padding := 8 - len(feedList[i].Name)
@@ -220,7 +222,7 @@ func printFeed(win *Window, feedBuffer FeedBuffer) {
 		lineLength += 3
 		win.ColorOff(4)
 		UseDefaultColors()
-		if i == feedBuffer.currItem {
+		if i == feedBuffer.currSelected {
 			win.ColorOn(2)
 		}
 		text := feedList[i].Body
@@ -230,9 +232,10 @@ func printFeed(win *Window, feedBuffer FeedBuffer) {
 		} else {
 			win.Println(text)
 		}
-		if i == feedBuffer.currItem {
+		if i == feedBuffer.currSelected {
 			win.ColorOff(2)
 		}
+		feedBuffer.currPrinted++
 
 	}
 }
