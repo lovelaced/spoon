@@ -1,8 +1,9 @@
 package main
 
 type FeedBuffer struct {
-	currSelected int
-	currPrinted  int
-	items        []FeedItem
-	lastUpdate   string
+	CurrSelected int
+	CurrPrinted  int
+	Items        []FeedItem
+	LastUpdate   string
+	Name         string
 }

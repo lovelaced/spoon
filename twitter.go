@@ -32,16 +32,16 @@ func updateTimeline(api *an.TwitterApi, id string) []an.Tweet {
 	if err != nil {
 		log.Fatal(err)
 	}
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 	return home
 }
 
-func processTweets(feedBuffer FeedBuffer, tweets []an.Tweet) FeedBuffer {
+func processTweets(feedBuffer *FeedBuffer, tweets []an.Tweet) {
 	var extraSlice []FeedItem
-	feedList := feedBuffer.items
+	feedList := feedBuffer.Items
 	for i := 0; i < len(tweets); i++ {
 		if i == 0 {
-			feedBuffer.lastUpdate = strconv.FormatInt(tweets[0].Id, 10)
+			feedBuffer.LastUpdate = strconv.FormatInt(tweets[0].Id, 10)
 		}
 		t, _ := time.Parse(time.RubyDate, tweets[i].CreatedAt)
 		text := strings.Replace(tweets[i].Text, "\n", " ", -1)
@@ -54,8 +54,7 @@ func processTweets(feedBuffer FeedBuffer, tweets []an.Tweet) FeedBuffer {
 		extraSlice = append(extraSlice, newFeed)
 	}
 	feedList = append(extraSlice, feedList...)
-	feedBuffer.items = feedList
-	return feedBuffer
+	feedBuffer.Items = feedList
 }
 
 //TODO: Actually move this here maybe?

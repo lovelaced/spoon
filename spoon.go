@@ -65,6 +65,7 @@ func main() {
 	// set up a different panel for each feed
 	//TODO: Get total number of feeds from config file
 	//TODO: Get names of feeds from config file
+	//TODO: Set them as feedBuffer.Name
 	totalFeeds := 3
 	feedPanels := make([]*Panel, totalFeeds)
 	var names [3]string
@@ -91,25 +92,33 @@ func main() {
 		win, _ = NewWindow(cols-1, rows, 0, 0)
 		feedPanels[i] = NewPanel(win)
 	}
-	//win.Keypad(true)
+	win.Keypad(true)
+
 	//create a list which holds feed items, we need one for each feedBuffer
 	feedList := make([]FeedItem, 1)
+
+	//TODO: Create one feedbuffer for each feed and populate allBuffers with them
+
+	//allBuffers := make([]FeedBuffer, totalFeeds)
+
 	var feedBuffer FeedBuffer
-	feedBuffer.currSelected = 0
-	feedBuffer.currPrinted = 0
-	feedBuffer.items = feedList
+	feedBuffer.CurrSelected = 0
+	feedBuffer.CurrPrinted = 0
+	feedBuffer.Items = feedList
+
 	api, tweets = createAPI(conf.Twitter.Api_key, conf.Twitter.Api_secret,
 		conf.Twitter.Access_token, conf.Twitter.Access_secret)
 	//create channel to make sure goroutines shut down on exit
 	endSignal := make(chan bool)
-	buffChan := make(chan FeedBuffer)
-	go updateWindow(win, tweets, feedBuffer, endSignal, buffChan)
+	//buffChan := make(chan FeedBuffer)
+	go updateWindow(win, tweets, &feedBuffer, endSignal)
 	//go updateTwitterWindow(win, tweets, feedList)
 	active := 0
 
 	for {
 		UpdatePanels()
 		Update()
+
 		ch := win.GetChar()
 
 		// check for user input
@@ -137,7 +146,7 @@ func main() {
 			//TODO: fix this
 			_, mx = bbar.MaxYX()
 			Echo(true)
-			bbar.MovePrint(my, 1, len(feedBuffer.items))
+			bbar.MovePrint(my, 1, len(feedBuffer.Items))
 			bbar.Move(1, mx)
 			bbar.ColorOn(1)
 			//	window.Move(1, my)
@@ -150,31 +159,28 @@ func main() {
 		case KEY_LEFT:
 			//TODO: same shit
 		case KEY_UP:
-			if feedBuffer.currSelected == 0 {
-				feedBuffer.currSelected = len(feedBuffer.items) - 1
+			if feedBuffer.CurrSelected == 0 {
+				feedBuffer.CurrSelected = len(feedBuffer.Items) - 1
 			} else {
-				feedBuffer.currSelected -= 1
+				feedBuffer.CurrSelected -= 1
 			}
-			buffChan <- feedBuffer
-			printFeed(win, feedBuffer, buffChan)
+			//	buffChan <- feedBuffer
 		case KEY_DOWN:
-			if feedBuffer.currSelected == len(feedBuffer.items) {
-				feedBuffer.currSelected = 0
+			if feedBuffer.CurrSelected == len(feedBuffer.Items) {
+				feedBuffer.CurrSelected = 0
 			} else {
-				feedBuffer.currSelected += 1
+				feedBuffer.CurrSelected += 1
 			}
-			buffChan <- feedBuffer
-			printFeed(win, feedBuffer, buffChan)
+			//		buffChan <- feedBuffer
 		case KEY_ENTER:
 			//TODO: expands feed if feed is focused, selects feed if bbar is focused
 
 		}
 	}
-
 }
 
-func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer FeedBuffer,
-	endSignal chan bool, buffChan chan FeedBuffer) {
+func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer *FeedBuffer,
+	endSignal chan bool) {
 
 	go func(chan bool) {
 		for {
@@ -188,47 +194,42 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer FeedBuffer,
 
 	for {
 		UpdatePanels()
-		//TODO: if Twitter...
 		win.Erase()
 		win.NoutRefresh()
-		if feedBuffer.lastUpdate != "" {
-			tweets = updateTimeline(api, feedBuffer.lastUpdate)
+		//TODO: if not Twitter...
+		//TODO: make this nonblocking
+		if feedBuffer.LastUpdate != "" {
+			tweets = updateTimeline(api, feedBuffer.LastUpdate)
 		}
-		feedBuffer = processTweets(feedBuffer, tweets)
+		processTweets(feedBuffer, tweets)
 		//feedBuffer = updateTwitterWindow(win, tweets, feedBuffer)
-		printFeed(win, feedBuffer, buffChan)
+		printFeed(win, feedBuffer)
 		win.NoutRefresh()
 		Update()
 	}
 }
 
-func printFeed(win *Window, feedBuffer FeedBuffer, buffChan chan FeedBuffer) {
-
-	go func(chan FeedBuffer) {
-		for {
-			feedBuffer = <-buffChan
-		}
-	}(buffChan)
+func printFeed(win *Window, feedBuffer *FeedBuffer) {
 
 	my, mx := win.MaxYX()
-	feedList := feedBuffer.items
+	feedList := feedBuffer.Items
 	// check to see if the feedlist is more than the number
 	// of lines we have in our window
 	iterations := my - 1
-	if (feedBuffer.currPrinted)+iterations > len(feedBuffer.items) {
-		iterations = len(feedList) - feedBuffer.currPrinted
+	if (feedBuffer.CurrPrinted)+iterations > len(feedBuffer.Items) {
+		iterations = len(feedList) - feedBuffer.CurrPrinted
 	}
-	for i := feedBuffer.currPrinted; i < iterations; i++ {
+	for i := feedBuffer.CurrPrinted; i < iterations; i++ {
 		_, my := win.MaxYX()
 
 		lineLength := 1
 		if feedList[i].Time.IsZero() {
 			continue
 		}
-		// only print time if the window is wider than 40 cols
-		if i == feedBuffer.currSelected {
+		if i == feedBuffer.CurrSelected {
 			win.AttrOn(A_REVERSE)
 		}
+		// only print time if the window is wider than 40 cols
 		if mx > 40 {
 			win.Print(feedList[i].Time.Format(" 15:04") + " ")
 			lineLength = 7
@@ -248,7 +249,7 @@ func printFeed(win *Window, feedBuffer FeedBuffer, buffChan chan FeedBuffer) {
 		win.ColorOff(3)
 		win.ColorOn(4)
 		win.Print(" │ ")
-		lineLength += 9
+		lineLength += 8
 		win.ColorOff(4)
 		text := feedList[i].Body
 		if len(text) > my-lineLength-7 {
@@ -256,13 +257,13 @@ func printFeed(win *Window, feedBuffer FeedBuffer, buffChan chan FeedBuffer) {
 		} else {
 			win.Println(text)
 		}
-		if i == feedBuffer.currSelected {
+		if i == feedBuffer.CurrSelected {
 			win.AttrOff(A_REVERSE)
 		}
 		win.ColorOn(1)
-		win.MovePrint(my-3, mx/2, len(feedBuffer.items))
+		win.MovePrint(my-3, mx/2, len(feedBuffer.Items))
 		win.ColorOff(1)
-		feedBuffer.currPrinted++
+		feedBuffer.CurrPrinted++
 
 	}
 }
