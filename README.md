@@ -1,4 +1,4 @@
-# spoon
+# spoon -- WIP
 
 Configurable feed client with ncurses, written in Go.
 
