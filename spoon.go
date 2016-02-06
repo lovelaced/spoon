@@ -18,7 +18,6 @@ func main() {
 	// check to see if the config file exists
 	// if it doesn't, create it and ask for API keys
 
-	var tweets []anaconda.Tweet
 	conf := loadConfig()
 	err := initData()
 	if err != nil {
@@ -40,8 +39,6 @@ func main() {
 	defer End()
 	stdscr.Refresh()
 	cols, rows := stdscr.MaxYX()
-	bbar, _ := NewWindow(1, rows, cols-1, 0)
-	my, mx := bbar.MaxYX()
 
 	// Initialize colors
 	StartColor()
@@ -50,18 +47,7 @@ func main() {
 	InitPair(2, C_BLACK, C_WHITE)
 	InitPair(3, C_BLUE, -1)
 	InitPair(4, C_YELLOW, -1)
-	bbar.ColorOn(int16(1))
-	// TODO: change time format so it's better maybe
 
-	// Set up lower right bar information
-	barinfo := time.Now().Format(time.RFC822)
-
-	bbar.MovePrint(my/2, mx-len(barinfo)-2, barinfo)
-	bbar.ColorOff(int16(1))
-	bgc := ColorPair(int16(1))
-	bbar.SetBackground(bgc)
-	Echo(false)
-	NewPanel(bbar)
 	// set up a different panel for each feed
 	//TODO: Get total number of feeds from config file
 	//TODO: Get names of feeds from config file
@@ -75,18 +61,7 @@ func main() {
 	totalLength := 1
 
 	// print the names of the feeds into the lower left of the bar
-	for i := 0; i < len(names); i++ {
-		if i == 0 {
-			bbar.AttrOn(A_BOLD)
-		}
-		bbar.MovePrint(my/2, totalLength+1, "["+names[i]+"] ")
-		if i == 0 {
-			bbar.AttrOff(A_BOLD)
-		}
-		totalLength += len(names[i]) + 3
-	}
 
-	// this sets up a hashmap of names:windows but I'm not sure we need it
 	var win *Window
 	for i := totalFeeds - 1; i >= 0; i-- {
 		win, _ = NewWindow(cols-1, rows, 0, 0)
@@ -106,6 +81,7 @@ func main() {
 	feedBuffer.CurrPrinted = 0
 	feedBuffer.Items = feedList
 
+	var tweets []anaconda.Tweet
 	api, tweets = createAPI(conf.Twitter.Api_key, conf.Twitter.Api_secret,
 		conf.Twitter.Access_token, conf.Twitter.Access_secret)
 	//create channel to make sure goroutines shut down on exit
@@ -114,14 +90,19 @@ func main() {
 	go updateWindow(win, tweets, &feedBuffer, endSignal)
 	//go updateTwitterWindow(win, tweets, feedList)
 	active := 0
-
+	bbar := drawBar(rows, cols, names, totalLength)
 	for {
+		cols, rows := win.MaxYX()
+		//	Update()
+		bbar.Delete()
+		bbar = drawBar(rows, cols, names, totalLength)
+		win.Erase()
+		printFeed(win, &feedBuffer)
+		win.NoutRefresh()
 		UpdatePanels()
 		Update()
-
-		ch := win.GetChar()
-
 		// check for user input
+		ch := win.GetChar()
 		switch Key(ch) {
 		case 'q':
 			endSignal <- true
@@ -136,7 +117,7 @@ func main() {
 				if names[active] == names[i] {
 					bbar.AttrOn(A_BOLD)
 				}
-				bbar.MovePrint(my/2, totalLength+1, "["+names[i]+"] ")
+				bbar.MovePrint(cols/2, totalLength+1, "["+names[i]+"] ")
 				if names[active] == names[i] {
 					bbar.AttrOff(A_BOLD)
 				}
@@ -144,13 +125,13 @@ func main() {
 			}
 		case ':':
 			//TODO: fix this
-			_, mx = bbar.MaxYX()
+			_, rows = bbar.MaxYX()
 			Echo(true)
-			bbar.MovePrint(my, 1, len(feedBuffer.Items))
-			bbar.Move(1, mx)
+			bbar.MovePrint(cols, 1, len(feedBuffer.Items))
+			bbar.Move(1, rows)
 			bbar.ColorOn(1)
 			//	window.Move(1, my)
-			command, _ := bbar.GetString(mx)
+			command, _ := bbar.GetString(rows)
 			parseCommand(command, bbar)
 			Echo(false)
 
@@ -179,6 +160,34 @@ func main() {
 	}
 }
 
+func drawBar(rows int, cols int, names [3]string, totalLength int) *Window {
+	bbar, _ := NewWindow(1, rows, cols-1, 0)
+	my, mx := bbar.MaxYX()
+	bbar.ColorOn(int16(1))
+
+	for i := 0; i < len(names); i++ {
+		if i == 0 {
+			bbar.AttrOn(A_BOLD)
+		}
+		bbar.MovePrint(my/2, totalLength+1, "["+names[i]+"] ")
+		if i == 0 {
+			bbar.AttrOff(A_BOLD)
+		}
+		totalLength += len(names[i]) + 3
+	}
+	// Set up lower right bar information
+	// TODO: change time format so it's better maybe
+	barinfo := time.Now().Format(time.RFC822)
+
+	bbar.MovePrint(my/2, mx-len(barinfo)-2, barinfo)
+	bbar.ColorOff(int16(1))
+	bgc := ColorPair(int16(1))
+	bbar.SetBackground(bgc)
+	Echo(false)
+	NewPanel(bbar)
+	return bbar
+}
+
 func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer *FeedBuffer,
 	endSignal chan bool) {
 
@@ -192,20 +201,22 @@ func updateWindow(win *Window, tweets []anaconda.Tweet, feedBuffer *FeedBuffer,
 		}
 	}(endSignal)
 
+	tweetchan := make(chan []anaconda.Tweet)
+	running := false
+
 	for {
-		UpdatePanels()
-		win.Erase()
-		win.NoutRefresh()
+		//	win.Erase()
+		//	win.NoutRefresh()
 		//TODO: if not Twitter...
 		//TODO: make this nonblocking
-		if feedBuffer.LastUpdate != "" {
-			tweets = updateTimeline(api, feedBuffer.LastUpdate)
+		if feedBuffer.LastUpdate != "" && !running {
+			updateTimeline(api, &tweetchan, feedBuffer.LastUpdate)
+			running = true
 		}
 		processTweets(feedBuffer, tweets)
 		//feedBuffer = updateTwitterWindow(win, tweets, feedBuffer)
-		printFeed(win, feedBuffer)
-		win.NoutRefresh()
-		Update()
+		//	Update()
+		time.Sleep(100 * time.Nanosecond)
 	}
 }
 
