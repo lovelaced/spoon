@@ -5,11 +5,11 @@
         "access_token"  : "",
         "access_secret" : ""
     },
-    "rss" : [
+    "rss" : {
         "feed1" : {
             "url" : ""
         }
-    ],
+    },
     "spoon" : {
         "look" : {
             "color" : {
