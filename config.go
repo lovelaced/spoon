@@ -31,15 +31,17 @@ func loadConfig() Config {
 	conf := Config{}
 	var file io.Reader
 	path, err := xdg.Config.Find("spoon/config.json")
-	if err == nil {
-		file, _ = os.Open(path)
-	} else {
+	if err != nil {
 		log.Fatal(err)
+	} else {
+		file, _ = os.Open(path)
 	}
+
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&conf)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	return conf
 }
